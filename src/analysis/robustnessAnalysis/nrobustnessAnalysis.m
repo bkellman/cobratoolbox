@@ -25,7 +25,7 @@ function [controlFluxs, objFlux] = nRobustnessAnalysis(model, controlRxns, nPoin
 %    objFlux:        Optimal values of objective reaction at each control
 %                    reaction flux value
 %
-% .. Authors: - Monica Mo and Markus Herrgard 8/20/07
+% .. Authors: - Ben Kellman & Matt Schinn 6/13/19
 
 if (nargin < 3)
     nPoints = 20;
