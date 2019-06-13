@@ -1,4 +1,4 @@
-function [controlFluxs, objFlux] = nRobustnessAnalysis(model, controlRxns, emperical, nPoints, plotResFlag, objRxn,objType)
+function [controlFluxs, objFlux] = nRobustnessAnalysis(model, controlRxns, nPoints, plotResFlag, objRxn,objType,emperical)
 % Performs robustness analysis for a pair of reactions of
 % interest and an objective of interest
 %
@@ -20,63 +20,66 @@ function [controlFluxs, objFlux] = nRobustnessAnalysis(model, controlRxns, emper
 %                    (Default = 'max')
 %
 % OUTPUTS:
-%    controlFlux:    Flux values within the range of the maximum and minimum for
+%    controlFluxs:   Vector of flux values within the range of the maximum and minimum for
 %                    reaction of interest
 %    objFlux:        Optimal values of objective reaction at each control
 %                    reaction flux value
 %
 % .. Authors: - Monica Mo and Markus Herrgard 8/20/07
 
-if (nargin < 4)
+if (nargin < 3)
     nPoints = 20;
 end
-if (nargin < 5)
+if (nargin < 4)
     plotResFlag = true;
 end
-if (nargin > 6)
+if (nargin > 5)
     baseModel = changeObjective(model,objRxn);
 else
     baseModel = model;
 end
-if (nargin <7)
+if (nargin <6)
     objType = 'max';
 end
-
-if (findRxnIDs(model,controlRxn1))
-    tmpModel = changeObjective(model,controlRxn1);
-    solMin1 = optimizeCbModel(tmpModel,'min');
-    solMax1 = optimizeCbModel(tmpModel,'max');
-else
-    error('Control reaction 1 does not exist!');
+if (nargin <7)
+    emperical=[];
 end
-if (findRxnIDs(model,controlRxn2))
-    tmpModel = changeObjective(model,controlRxn2);
-    solMin2 = optimizeCbModel(tmpModel,'min');
-    solMax2 = optimizeCbModel(tmpModel,'max');
-else
-    error('Control reaction 2 does not exist!');
+
+solMins = {};
+solMaxs = {};
+
+for rxnI=controlRxns
+    if (findRxnIDs(model,rxnI))
+        tmpModel = changeObjective(model,rxnI);
+        solMins{rxnI} = optimizeCbModel(tmpModel,'min');
+        solMaxs{rxnI} = optimizeCbModel(tmpModel,'max');
+    else
+        error('Control reaction 1 does not exist!');
+    end
 end
 
 objFlux = [];
-controlFlux1 = linspace(solMin1.f,solMax1.f,nPoints)';
-controlFlux2 = linspace(solMin2.f,solMax2.f,nPoints)';
+controlFluxs = [];
+for rxnI=controlRxns
+   controlFluxs = linspace(solMin{rxnI}.f,solMax{rxnI}.f,nPoints)'; 
+end
 
 showprogress(0,'Double robustness analysis in progress ...');
 for i=1:nPoints
     for j = 1:nPoints
         showprogress(((i-1)*nPoints+j)/nPoints^2);
         modelControlled = changeRxnBounds(baseModel,controlRxn1,controlFlux1(i),'b');
-        modelControlled = changeRxnBounds(modelControlled,controlRxn2,controlFlux2(j),'b');
+        for rxnI=controlRxns[-1]
+            modelControlled = changeRxnBounds(modelControlled,rxnI,controlFlux(rxnI)(j),'b');
+        end
         solControlled = optimizeCbModel(modelControlled,objType);
-        objFlux(i,j) = solControlled.f;
+        if length(emperical)>0
+            resp = -log(solControlled.f - emperical)
+        else
+            resp = solControlled.f
+        end
+        objFlux(i,j) = resp;
     end
 end
 
-if (plotResFlag)
-    clf
-    surf(controlFlux1,controlFlux2,objFlux);
-    %shading interp
-    xlabel(strrep(controlRxn1,'_','-'));
-    ylabel(strrep(controlRxn2,'_','-'));
-    axis tight
-end
+
